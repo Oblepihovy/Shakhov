@@ -35,7 +35,7 @@ import numpy as np
 from scipy import integrate
 
 from src.advection_solvers.WENO5RK3_IMEX import WENO5RK3
-from src.advection_solvers.rk2_imex import SolverRK
+from src.advection_solvers.rk2 import SolverRK
 from src.advection_solvers.godunov import SolverGodunov
 from src.advection_solvers.kolgan import SolverKolgan
 from src.thermodynamics.boundary_condition import PeriodicBoundaryCondition

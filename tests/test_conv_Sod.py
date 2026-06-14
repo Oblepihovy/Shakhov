@@ -3,22 +3,17 @@ import time
 import numpy as np
 
 from src.advection_solvers.rk2 import SolverRK
-from src.thermodynamics.boundary_condition import EvapCondBoundaryCondition, ZeroGradBoundaryCondition
+from src.thermodynamics.boundary_condition import ZeroGradBoundaryCondition
 from src.config.configuration import *
 from src.mesh import UnadaptableMesh
 from src.advection_solvers.godunov import SolverGodunov
 from src.advection_solvers.kolgan import SolverKolgan
-
-import matplotlib
-import matplotlib.pyplot as plt
 
 from src.thermodynamics.model_properties import ModelProperties
 from src.thermodynamics.model_state import ModelState
 from src.thermodynamics.property_calculator import PropertyCalculator
 from src.thermodynamics.shakhov_solver import ShakhovSolver
 from src.utils.sod_exact import euler_exact, L2, L_sup, L1
-
-matplotlib.use('TkAgg')
 
 
 from src.config.libloader import xp, cuda_is_available
