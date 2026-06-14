@@ -10,29 +10,27 @@ class ModelState:
         self.init_conditions(properties, config)
 
     def init_conditions(self, properties: ModelProperties, config: dict):
+        # Центры всех ячеек (включая ghost), длина = len(mesh.x) - 1
+        x_centers = properties.mesh.get_centers()
+        ng = properties.bc.n_ghost
 
-        N = len(properties.mesh.x)
+        # Только физические центры
+        x_phys = x_centers[ng:-ng]
 
-        n = xp.zeros((len(properties.mesh.x) + 1), dtype=config['dtype'])
-        n[properties.bc.n_ghost:-properties.bc.n_ghost] = config['F_BEG_N'](
-            (properties.mesh.x[properties.bc.n_ghost-1 : N-properties.bc.n_ghost] +
-             properties.mesh.x[properties.bc.n_ghost : N-properties.bc.n_ghost+1])/2
-        )
+        n_cells = len(x_centers)  # = len(mesh.x) - 1
 
-        u = xp.zeros((len(properties.mesh.x) + 1), dtype=config['dtype'])
-        u[properties.bc.n_ghost:-properties.bc.n_ghost] = config['F_BEG_U'](
-            (properties.mesh.x[properties.bc.n_ghost-1 : N-properties.bc.n_ghost] +
-             properties.mesh.x[properties.bc.n_ghost : N-properties.bc.n_ghost+1])/2
-        )
+        n = xp.zeros(n_cells, dtype=config['dtype'])
+        n[ng:-ng] = config['F_BEG_N'](x_phys)
 
-        T = xp.zeros((len(properties.mesh.x) + 1), dtype=config['dtype'])
-        T[properties.bc.n_ghost:-properties.bc.n_ghost] = config['F_BEG_T'](
-            (properties.mesh.x[properties.bc.n_ghost-1 : N-properties.bc.n_ghost] +
-             properties.mesh.x[properties.bc.n_ghost : N-properties.bc.n_ghost+1])/2
-        )
+        u = xp.zeros(n_cells, dtype=config['dtype'])
+        u[ng:-ng] = config['F_BEG_U'](x_phys)
 
-        self.F = xp.zeros((len(properties.mesh.x) + 1, len(properties.xi), len(properties.xi), len(properties.xi)))
-        self.F[properties.bc.n_ghost:-properties.bc.n_ghost, :, :, :] = self.init_F_vectorized(n, u, T, properties, properties.bc.n_ghost)
+        T = xp.zeros(n_cells, dtype=config['dtype'])
+        T[ng:-ng] = config['F_BEG_T'](x_phys)
+
+        n_xi = len(properties.xi)
+        self.F = xp.zeros((n_cells, n_xi, n_xi, n_xi), dtype=config['dtype'])
+        self.F[ng:-ng] = self.init_F_vectorized(n, u, T, properties, ng)
 
     @staticmethod
     def init_F_vectorized(n, u, T, properties: ModelProperties, n_ghost):

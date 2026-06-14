@@ -20,4 +20,4 @@ def F_BEG_T(x):
     return xp.where(x <= 0.5, 1., 0.8)
     #return 1
 
-dtype = xp.float32
+dtype = xp.float64

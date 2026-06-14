@@ -205,3 +205,15 @@ def L2(x: np.ndarray, f1: np.ndarray, f2: np.ndarray) -> float:
 
     diff = f1 - f2
     return np.sqrt(np.sum(diff ** 2 * dx))
+
+def L1(x: np.ndarray, f1: np.ndarray, f2: np.ndarray) -> float:
+    dx = np.empty_like(x)
+    dx[1:-1] = (x[2:] - x[:-2]) / 2.0  # внутренние точки
+    dx[0]    = x[1] - x[0]              # левая граница
+    dx[-1]   = x[-1] - x[-2]            # правая граница
+
+    diff = f1 - f2
+    return np.sum(np.abs(diff) * dx)
+
+def L_sup(x: np.ndarray, f1: np.ndarray, f2: np.ndarray) -> float:
+    return np.max(f1 - f2)

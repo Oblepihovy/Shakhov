@@ -17,7 +17,7 @@ from src.thermodynamics.model_properties import ModelProperties
 from src.thermodynamics.model_state import ModelState
 from src.thermodynamics.property_calculator import PropertyCalculator
 from src.thermodynamics.shakhov_solver import ShakhovSolver
-from src.utils.sod_exact import euler_exact, L2
+from src.utils.sod_exact import euler_exact, L2, L_sup, L1
 
 matplotlib.use('TkAgg')
 
@@ -27,9 +27,9 @@ from src.config.libloader import xp, cuda_is_available
 
 CFL = 0.8
 t_max = 0.2
-TD_KN = 1e-6
+TD_KN = 1e-5
 
-n_x = 80
+n_x = 20
 n_xi = 20
 
 #F_BEG_N = lambda x: 1.
@@ -57,7 +57,7 @@ adv_solver = SolverDTSS2(
     omega=0.1,
     cfl_pseudo=0.9
 )"""
-adv_solver = WENO5RK3()
+adv_solver = SolverRK()
 properties = ModelProperties(model_config, mesh1, bc)
 state = ModelState(properties, model_config)
 solver = ShakhovSolver(state, properties, adv_solver)
@@ -68,7 +68,9 @@ print("S1 calculation time = ", t2-t1)
 
 
 
-x = properties.mesh.get_centers()[bc.n_ghost:len(properties.mesh.x) - bc.n_ghost + 1]
+#x = properties.mesh.get_centers()[bc.n_ghost:len(properties.mesh.x) - bc.n_ghost + 1]
+x = properties.mesh.get_centers()[bc.n_ghost:-bc.n_ghost]
+
 
 
 if cuda_is_available:
@@ -76,7 +78,7 @@ if cuda_is_available:
 n, u, T, q = PropertyCalculator.get_solution_macros(state.F, properties)
 
 n_exact, u_exact, T_exact = euler_exact(x, 0.5, 1, 0.125, 0, 0, 1./2., 0.8/2., t_max, gamma=5./3.)
-print(f'L2 err: {L2(x, n_exact, n)}')
+print(f'L2: {L2(x, n_exact, n)}, L1: {L1(x, n_exact, n)}, max: {L_sup(x, n_exact, n)}, mean: {xp.mean(n_exact-n)}')
 
 fig, axs = plt.subplots(1, 3)
 fig.suptitle(f'{adv_solver.get_name()}, n_x:{n_x}, x:({X_LEFT},{X_RIGHT},{n_x}), xi:({XI_LEFT},{XI_RIGHT},{n_xi}), t:{t_max.__round__(3)}, CFL:{CFL}, Kn:{TD_KN}')
