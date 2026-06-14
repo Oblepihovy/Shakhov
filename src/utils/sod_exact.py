@@ -216,4 +216,4 @@ def L1(x: np.ndarray, f1: np.ndarray, f2: np.ndarray) -> float:
     return np.sum(np.abs(diff) * dx)
 
 def L_sup(x: np.ndarray, f1: np.ndarray, f2: np.ndarray) -> float:
-    return np.max(f1 - f2)
+    return np.max(np.abs(f1 - f2))

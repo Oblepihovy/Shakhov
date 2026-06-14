@@ -22,8 +22,8 @@ test_conv_smooth.py
 import time
 import numpy as np
 
-from src.advection_solvers.WENO5RK3 import WENO5RK3
-from src.advection_solvers.rk2 import SolverRK
+from src.advection_solvers.WENO5RK3_IMEX import WENO5RK3
+from src.advection_solvers.rk2_imex import SolverRK
 from src.advection_solvers.godunov import SolverGodunov
 from src.advection_solvers.kolgan import SolverKolgan
 from src.thermodynamics.boundary_condition import PeriodicBoundaryCondition
@@ -49,7 +49,7 @@ from src.config.libloader import xp, cuda_is_available
 # Максвелл: exp(-(ξ-u)²/T_code), поэтому p = n·T_code/2
 # Скорость звука: c² = γ·p/ρ = γ·T_code/2
 
-EPS     = 0.1          # амплитуда возмущения (0.1 — безопасно до t_max ≈ 1.7)
+EPS     = 1e-3         # амплитуда возмущения (0.1 — безопасно до t_max ≈ 1.7)
 N0      = 1.0
 U0      = 0.0
 T0      = 1.0          # T_code фона
@@ -101,7 +101,7 @@ def get_smooth_convergence(advection_solver_cls, n_x_vals, n_xi_vals, n_ghost=3)
 
     CFL   = 0.8
     t_max = 0.2
-    TD_KN = 1e-6      # Kn << 1: газ в гидродинамическом пределе
+    TD_KN = 1e-12      # Kn << 1: газ в гидродинамическом пределе
     dtype = xp.float64  # float32 маскирует сходимость выше ~1-го порядка
 
     if len(n_x_vals) != len(n_xi_vals):

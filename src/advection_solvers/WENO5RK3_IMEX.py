@@ -98,6 +98,24 @@ class WENO5RK3(Solver):
 
     # ----------------------------------------------------------- SSP-RK3 шаг
     def calculate_layer(self, F, t, tau, properties: ModelProperties, prop_calc):
+        """
+        IMEX-SSP-RK3 для уравнения Больцмана–Шахова:
+          ∂F/∂t = L_adv(F) + L_coll(F)
+
+        Наивный вариант (L_adv → BGK в конце) — расщепление Ли–Троттера:
+        на стадиях 2–3 SSP-RK3 F₁, F₂ являются НЕРАВНОВЕСНЫМИ.
+        Поток импульса ∫ξx²F₁dξ содержит поправку O(τ) от 3-го момента,
+        что даёт суммарную погрешность O(τ) = O(h) по импульсу → rate=1.
+
+        Фикс (этот вариант): применяем BGK-коллизию к промежуточным стадиям,
+        возвращая F₁ и F₂ на максвеллианово многообразие перед вычислением k2, k3.
+        В жёстком пределе (Kn·ν·τ >> 1) коллизия ≡ проекции на максвеллиан,
+        поэтому стадии 2 и 3 снова используют правильные эйлеровские потоки.
+        Итоговая схема эквивалентна SSP-RK3 на уравнениях Эйлера → rate≈3.
+
+        Стоимость: 3 вызова BGK вместо 1. Для жёсткого BGK каждый вызов —
+        это get_macros + init_F_vectorized, что сопоставимо с одним шагом адвекции.
+        """
         if not self._buffers_allocated:
             self._alloc_buffers(F)
 
@@ -107,13 +125,21 @@ class WENO5RK3(Solver):
 
         F0[:] = F
 
+        # Стадия 1: адвекция из максвеллиана F0
         k1    = self._step(F, t, tau, properties, prop_calc)
         F1[:] = F0 + tau * k1
+        # Проецируем F1 на максвеллиан (BGK для стадии 1)
+        super()._calculate_collisions(F1, tau, properties, prop_calc)
 
+        # Стадия 2: адвекция из максвеллиана F1
         k2    = self._step(F1, t + tau, tau, properties, prop_calc)
         F2[:] = 0.75 * F0 + 0.25 * (F1 + tau * k2)
+        # Проецируем F2 на максвеллиан (BGK для стадии 2)
+        super()._calculate_collisions(F2, tau, properties, prop_calc)
 
+        # Стадия 3: адвекция из максвеллиана F2
         k3    = self._step(F2, t + 2*tau, tau, properties, prop_calc)
         F[:]  = (1/3) * F0 + (2/3) * (F2 + tau * k3)
 
+        # Финальная коллизия
         super()._calculate_collisions(F, tau, properties, prop_calc)

@@ -13,16 +13,25 @@ class ShakhovSolver:
         self.solver = solver
         self.prop_calc = prop_calc
 
-    def calculate(self, CFL, t_max):
+    def calculate(self, CFL, t_max, print_each=1):
         t_cur = 0
-        n = 1
+        n     = 1
         xi_max = xp.max(xp.abs(self.props.xi))
+
         while t_cur < t_max:
-            tau = min(CFL * min(self.props.mesh.get_dx()) / xi_max,
-                      max(t_max - t_cur, 1e-15))
-            self.solver.calculate_layer(self.state.F, t_cur, tau, self.props, self.prop_calc)
+            if n % print_each == 0:
+                print(f"calculation: {t_cur:.6f} / {t_max}")
+            tau = min(
+                CFL * float(xp.min(self.props.mesh.get_dx())) / float(xi_max),
+                max(t_max - t_cur, 1e-15)
+            )
+            self.solver.calculate_layer(
+                self.state.F, t_cur, tau, self.props, self.prop_calc
+            )
             if n % 20 == 0:
-                print(f"calculation: {t_cur} / {t_max}")
-                self.props.mesh.update(self.state.F[1:-1], self.prop_calc, self.props)
+                # ИСПРАВЛЕНИЕ: передаём полный F, а не F[1:-1].
+                # F[1:-1] создавал view неправильного размера, из-за чего
+                # mesh.update индексировал не те ячейки.
+                self.props.mesh.update(self.state.F, self.prop_calc, self.props)
             t_cur += tau
             n += 1

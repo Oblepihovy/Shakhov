@@ -2,13 +2,10 @@ import time
 
 import numpy as np
 
-from src.advection_solvers.DTSS1 import SolverDTSS1
-from src.advection_solvers.DTSS2 import SolverDTSS2
-from src.advection_solvers.WENO5RK3 import WENO5RK3
 from src.advection_solvers.rk2 import SolverRK
 from src.thermodynamics.boundary_condition import EvapCondBoundaryCondition, ZeroGradBoundaryCondition
 from src.config.configuration import *
-from src.mesh import UnadaptableMesh, RezoningMesh
+from src.mesh import UnadaptableMesh
 from src.advection_solvers.godunov import SolverGodunov
 from src.advection_solvers.kolgan import SolverKolgan
 
@@ -23,7 +20,6 @@ from src.utils.sod_exact import euler_exact, L2, L_sup, L1
 
 matplotlib.use('TkAgg')
 
-#from src.datio import write_to_csv
 
 from src.config.libloader import xp, cuda_is_available
 
@@ -37,10 +33,10 @@ def F_BEG_T(x):
     return xp.where(x <= 0.5, 1., 0.8)
 
 
-def get_Sod_convergence(advection_solver, n_x_vals, n_xi_vals):
+def get_Sod_convergence(advection_solvers, n_x_vals, n_xi_vals):
     """
 
-    :param adv_solver:
+    :param advection_solvers:
     :param n_x_vals:
     :param n_xi_vals:
     :return: Errors: len(n_x_vals) x 3, times: len(n_x_vals)
@@ -71,7 +67,7 @@ def get_Sod_convergence(advection_solver, n_x_vals, n_xi_vals):
         bc = ZeroGradBoundaryCondition(2)
         mesh1 = UnadaptableMesh(xp.linspace(X_LEFT, X_RIGHT, n_x, endpoint=True), bc.n_ghost)
 
-        adv_solver = advection_solver()
+        adv_solver = advection_solvers[i]()
         properties = ModelProperties(model_config, mesh1, bc)
         state = ModelState(properties, model_config)
         solver = ShakhovSolver(state, properties, adv_solver)
@@ -89,6 +85,7 @@ def get_Sod_convergence(advection_solver, n_x_vals, n_xi_vals):
 
 
         print(
+            f'solver: {advection_solvers[i].get_name()}' 
             f'L2: {L2(x, n_exact, n)},'
             f' L1: {L1(x, n_exact, n)},'
             f' max: {L_sup(x, n_exact, n)},'
@@ -99,7 +96,7 @@ def get_Sod_convergence(advection_solver, n_x_vals, n_xi_vals):
 
     return calculation_errors, calculation_times
 
-L, t_calc = get_Sod_convergence(SolverRK, [10, 20, 40, 80, 160], [20, 20, 20, 20, 20])
+L, t_calc = get_Sod_convergence([SolverRK]*5, [10, 20, 40, 80, 160], [20, 20, 20, 20, 20])
 for i in range(3):
     print(f'L{i}: {L[:, i]}')
 print(f't_calc: {t_calc}')
