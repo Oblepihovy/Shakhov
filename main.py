@@ -2,6 +2,7 @@ import time
 
 from src.advection_solvers.DTSS1 import SolverDTSS1
 from src.advection_solvers.DTSS2 import SolverDTSS2
+from src.advection_solvers.WENO5RK3 import WENO5RK3
 from src.advection_solvers.rk2 import SolverRK
 from src.thermodynamics.boundary_condition import EvapCondBoundaryCondition, ZeroGradBoundaryCondition
 from src.config.configuration import *
@@ -16,6 +17,7 @@ from src.thermodynamics.model_properties import ModelProperties
 from src.thermodynamics.model_state import ModelState
 from src.thermodynamics.property_calculator import PropertyCalculator
 from src.thermodynamics.shakhov_solver import ShakhovSolver
+from src.utils.sod_exact import euler_exact, L2
 
 matplotlib.use('TkAgg')
 
@@ -25,10 +27,14 @@ from src.config.libloader import xp, cuda_is_available
 
 CFL = 0.8
 t_max = 0.2
-TD_KN = 1e-5
+TD_KN = 1e-6
 
-n_x = 200
-n_xi = 40
+n_x = 80
+n_xi = 20
+
+#F_BEG_N = lambda x: 1.
+#F_BEG_U = lambda x: 0.
+#F_BEG_T = lambda x: 1.
 
 
 model_config = {'X_LEFT': X_LEFT, 'X_RIGHT': X_RIGHT, 'n_x': n_x,
@@ -44,21 +50,21 @@ bc = ZeroGradBoundaryCondition(2)
 #mesh1 = RezoningMesh(xp.linspace(X_LEFT, X_RIGHT, n_x, endpoint=True), bc.n_ghost, alpha=0.9)
 mesh1 = UnadaptableMesh(xp.linspace(X_LEFT, X_RIGHT, n_x, endpoint=True), bc.n_ghost)
 
-'''
+"""
 adv_solver = SolverDTSS2(
     explicit_solver=SolverKolgan(),
     n_iter=20,
     omega=0.1,
-    cfl_pseudo=0.5
-)'''
-adv_solver = SolverRK()
+    cfl_pseudo=0.9
+)"""
+adv_solver = WENO5RK3()
 properties = ModelProperties(model_config, mesh1, bc)
 state = ModelState(properties, model_config)
 solver = ShakhovSolver(state, properties, adv_solver)
 t1 = time.time()
 solver.calculate(CFL, t_max)
 t2 = time.time()
-print("calculation time = ", t2-t1)
+print("S1 calculation time = ", t2-t1)
 
 
 
@@ -69,6 +75,9 @@ if cuda_is_available:
     x = xp.asnumpy(x)
 n, u, T, q = PropertyCalculator.get_solution_macros(state.F, properties)
 
+n_exact, u_exact, T_exact = euler_exact(x, 0.5, 1, 0.125, 0, 0, 1./2., 0.8/2., t_max, gamma=5./3.)
+print(f'L2 err: {L2(x, n_exact, n)}')
+
 fig, axs = plt.subplots(1, 3)
 fig.suptitle(f'{adv_solver.get_name()}, n_x:{n_x}, x:({X_LEFT},{X_RIGHT},{n_x}), xi:({XI_LEFT},{XI_RIGHT},{n_xi}), t:{t_max.__round__(3)}, CFL:{CFL}, Kn:{TD_KN}')
 
@@ -76,90 +85,20 @@ print(x.shape, n.shape)
 
 axs[0].set_title('n (density)')
 axs[0].scatter(x, n, linewidth=0.01)
-axs[0].plot(x, n, color='blue')
+axs[0].plot(x, n, color='blue', label=f'{adv_solver.get_name()}, n_x={n_x}')
+axs[0].plot(x, n_exact, color='black', label=f'exact, n_x={n_x}')
 axs[0].grid()
 
 axs[1].set_title('u (velocity)')
 axs[1].scatter(x, u, linewidth=0.01)
-axs[1].plot(x, u, color='blue')
+axs[1].plot(x, u, color='blue', label=f'{adv_solver.get_name()}, n_x={n_x}')
+axs[1].plot(x, u_exact, color='black', label=f'exact, n_x={n_x}')
 axs[1].grid()
 
 axs[2].set_title('T (temperature)')
 axs[2].scatter(x, T, linewidth=0.01)
-axs[2].plot(x, T, color='blue')
+axs[2].plot(x, T, color='blue', label=f'{adv_solver.get_name()}, n_x={n_x}')
+axs[2].plot(x, T_exact*2, color='black', label=f'exact, n_x={n_x}')
 axs[2].grid()
 
-"""
-path = 'Tolstyh2'
-#plt.savefig(f'infographics/{path}/n_x:{n_x}_xi:({XI_LEFT},{XI_RIGHT},{n_xi})_t:{t_max}_CFL:{CFL}_Kn:{TD_KN}.png', dpi=300)
-#write_to_csv(x, n, u, T, q, f'calculated_data/{path}/n_x:{n_x}_xi:({XI_LEFT},{XI_RIGHT},{n_xi})_t:{t_max}_CFL:{CFL}_Kn:{TD_KN}.dat')
-
-
-adv_solver = SolverRK()
-mesh2 = UnadaptableMesh(xp.linspace(X_LEFT, X_RIGHT, n_x, endpoint=True), bc.n_ghost)
-properties = ModelProperties(model_config, mesh2, bc)
-state = ModelState(properties, model_config)
-solver = ShakhovSolver(state, properties, adv_solver)
-
-solver.calculate(CFL, t_max)
-
-#x = properties.mesh.x[bc.n_ghost:len(properties.mesh.x)-bc.n_ghost+1]+properties.mesh.h/2
-x2 = properties.mesh.get_centers()[bc.n_ghost:len(properties.mesh.x) - bc.n_ghost + 1]
-if cuda_is_available:
-    x = xp.asnumpy(x)
-n2, u2, T2, q2 = PropertyCalculator.get_solution_macros(state.F, properties)
-
-
-
-
-axs[0].scatter(x2, n2, linewidth=0.01)
-axs[0].plot(x2, n2, color='red')
-#axs[0].grid()
-
-axs[1].scatter(x2, u2, linewidth=0.01)
-axs[1].plot(x2, u2, color='red')
-#axs[1].grid()
-
-axs[2].scatter(x2, T2, linewidth=0.01)
-axs[2].plot(x2, T2, color='red')
-#axs[2].grid()
-
-
-adv_solver = SolverDTSS2(
-    explicit_solver=SolverKolgan(),
-    n_iter=20,
-    omega=0.1,
-    cfl_pseudo=0.5
-)
-mesh3 = UnadaptableMesh(xp.linspace(X_LEFT, X_RIGHT, n_x*4, endpoint=True), bc.n_ghost)
-properties = ModelProperties(model_config, mesh3, bc)
-state = ModelState(properties, model_config)
-solver = ShakhovSolver(state, properties, adv_solver)
-
-solver.calculate(CFL, t_max)
-
-
-
-#x = properties.mesh.x[bc.n_ghost:len(properties.mesh.x)-bc.n_ghost+1]+properties.mesh.h/2
-x3 = properties.mesh.get_centers()[bc.n_ghost:len(properties.mesh.x) - bc.n_ghost + 1]
-if cuda_is_available:
-    x = xp.asnumpy(x)
-n3, u3, T3, q3 = PropertyCalculator.get_solution_macros(state.F, properties)
-
-
-
-
-axs[0].scatter(x3, n3, linewidth=0.01)
-axs[0].plot(x3, n3, color='green')
-#axs[0].grid()
-
-axs[1].scatter(x3, u3, linewidth=0.01)
-axs[1].plot(x3, u3, color='green')
-#axs[1].grid()
-
-axs[2].scatter(x3, T3, linewidth=0.01)
-axs[2].plot(x3, T3, color='green')
-#axs[2].grid()
-
-"""
 plt.show()

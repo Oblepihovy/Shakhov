@@ -22,7 +22,7 @@ class ShakhovSolver:
             tau = min(CFL * min(self.props.mesh.get_dx()) / xi_max,
                       max(t_max - t_cur, 1e-15))
             self.solver.calculate_layer(self.state.F, t_cur, tau, self.props, self.prop_calc)
-            if n % 1 == 0:
+            if n % 20 == 0:
                 self.props.mesh.update(self.state.F[1:-1], self.prop_calc, self.props)
             t_cur += tau
             n += 1

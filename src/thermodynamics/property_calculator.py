@@ -47,7 +47,7 @@ class PropertyCalculator:
         xi_shift = properties.xi_x[None, :, :, :] - u[:, None, None, None]
 
         c_sq = (
-                properties.xi_sq_x[None, :, :, :] +
+                xi_shift**2 +
                 properties.xi_sq_y[None, :, :, :] +
                 properties.xi_sq_z[None, :, :, :]
         )
@@ -94,7 +94,7 @@ class PropertyCalculator:
         xi_shift = properties.xi_x[None, :, :, :] - u[:, None, None, None]
 
         c_sq = (
-                properties.xi_sq_x[None, :, :, :] +
+                xi_shift ** 2 +
                 properties.xi_sq_y[None, :, :, :] +
                 properties.xi_sq_z[None, :, :, :]
         )

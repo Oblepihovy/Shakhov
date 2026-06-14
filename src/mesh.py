@@ -46,7 +46,9 @@ class RezoningMesh(Mesh):
         :param f_func: lambda dn, du, dT, dq: monitor function
         """
         eps = 1e-6
-        self.f_func = lambda df, f: 1 + 5*xp.tanh(xp.abs(df) / xp.abs(f) + eps)
+        self.f_func = lambda dn, n: (
+            1 + 5 * xp.tanh(xp.abs(dn) / (xp.abs(n) + eps))
+        )
         self.alpha = alpha
         super().__init__(x, n_ghost)
 
@@ -58,6 +60,7 @@ class RezoningMesh(Mesh):
         n, u, T, q = prop_calc.get_macros(F, props)
 
         dx_phys = self.dx[ng:-ng]
+        print('До адаптации:', xp.sum(n * dx_phys))
 
         dn = xp.abs(xp.diff(n)) / dx_phys[:-1]
         du = xp.abs(xp.diff(u)) / dx_phys[:-1]
@@ -69,7 +72,6 @@ class RezoningMesh(Mesh):
         du = xp.pad(du, (1, 0), mode='edge')
         dT = xp.pad(dT, (1, 0), mode='edge')
         dq = xp.pad(dq, (1, 0), mode='edge')
-        #print(dn)
 
         M = self.f_func(dn, n)
 
@@ -86,7 +88,6 @@ class RezoningMesh(Mesh):
         N_phys = len(S)
         S_uniform = xp.linspace(0.0, 1.0, N_phys)
 
-
         x_centers_old = self.get_centers()[ng:-ng]
         x_centers_new = xp.interp(S_uniform, S, x_centers_old)
         x_new_phys = xp.zeros(N_phys + 1, dtype=self.x.dtype)
@@ -102,17 +103,18 @@ class RezoningMesh(Mesh):
         r_ghost = x_new_phys[-1] + dx_r * idx
 
         x_full_new = xp.concatenate([l_ghost, x_new_phys, r_ghost])
+        x_full_blended = (1 - self.alpha) * self.x + self.alpha * x_full_new
 
         x_centers_full_old = self.get_centers()
-        x_centers_full_new = x_full_new[:-1] + (x_full_new[1:] - x_full_new[:-1]) / 2
+        x_centers_full_blended = x_full_blended[:-1] + (x_full_blended[1:] - x_full_blended[:-1]) / 2
 
-        idxs = xp.searchsorted(x_centers_full_old, x_centers_full_new) - 1
+        idxs = xp.searchsorted(x_centers_full_old, x_centers_full_blended) - 1
         idxs = xp.clip(idxs, 0, len(x_centers_full_old) - 2)
 
         x0 = x_centers_full_old[idxs]
         x1 = x_centers_full_old[idxs + 1]
 
-        w = (x_centers_full_new - x0) / (x1 - x0 + 1e-14)
+        w = (x_centers_full_blended - x0) / (x1 - x0 + 1e-14)
         w = w[:, None, None, None]
 
         F0 = F[idxs]
@@ -120,9 +122,12 @@ class RezoningMesh(Mesh):
 
         F_new = (1 - w) * F0 + w * F1
 
-        self.x = (1 - self.alpha) * self.x + self.alpha * x_full_new
+        self.x = x_full_blended
         self.dx = self.x[1:] - self.x[:-1]
         F[:] = F_new
+
+        n, u, T, q = prop_calc.get_macros(F, props)
+        print('После адаптации:', xp.sum(n * dx_phys))
 
 
 def graded_linspace(xp, n_points, a=0.01, length=1.0):
