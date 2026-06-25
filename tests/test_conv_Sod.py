@@ -67,7 +67,7 @@ def get_Sod_convergence(advection_solvers, n_x_vals, n_xi_vals):
         state = ModelState(properties, model_config)
         solver = ShakhovSolver(state, properties, adv_solver)
         t1 = time.time()
-        solver.calculate(CFL, t_max)
+        solver.calculate(CFL, t_max, print_each=20)
         t2 = time.time()
         print("S1 calculation time = ", t2 - t1)
         calculation_times[i] = t2 - t1
@@ -80,7 +80,7 @@ def get_Sod_convergence(advection_solvers, n_x_vals, n_xi_vals):
 
 
         print(
-            f'solver: {advection_solvers[i].get_name()}' 
+            f'solver: {advection_solvers[i].__name__}\n' 
             f'L2: {L2(x, n_exact, n)},'
             f' L1: {L1(x, n_exact, n)},'
             f' max: {L_sup(x, n_exact, n)},'
@@ -91,7 +91,7 @@ def get_Sod_convergence(advection_solvers, n_x_vals, n_xi_vals):
 
     return calculation_errors, calculation_times
 
-L, t_calc = get_Sod_convergence([SolverRK]*5, [10, 20, 40, 80, 160], [20, 20, 20, 20, 20])
+L, t_calc = get_Sod_convergence([SolverRK]*5, [100, 200], [20, 20])
 for i in range(3):
     print(f'L{i}: {L[:, i]}')
 print(f't_calc: {t_calc}')
